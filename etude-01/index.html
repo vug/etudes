@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Hello Web - Processing.js Test</title>
+  <script src="../lib/processing-1.4.1.min.js"></script>
+  <script type="application/processing" data-processing-target="pjs">
+PGraphics buf;
+PImage p1;
+float angle = 0.0;
+float t = 0;
+float init = 0;
+ 
+float tanh(float t) {
+    return (exp(t)-exp(-t))/(exp(t)+exp(-t));
+}
+ 
+void setup() 
+{
+  size(300, 300);
+  noStroke();
+  frameRate(30);
+  smooth();
+  // Set the starting position of the shape
+  xpos = width/2;
+  ypos = height/2;
+  
+  p1 = createImage(width, height, ARGB);
+}
+ 
+void draw() 
+{
+  background(102);
+  tint(255, 170);
+  image(p1,0,0);
+  
+  tint(255,255); 
+  int bufSize = 60;
+  buf = createGraphics(bufSize, bufSize);
+  buf.beginDraw();
+  buf.background(0,0);
+  buf.noStroke();
+  buf.smooth();
+  buf.translate(bufSize/2, bufSize/2);
+  buf.rotate(angle);
+  buf.rect(-2* bufSize, 0, 4*bufSize, bufSize);
+  buf.endDraw();
+  for(int i=0; i<width/bufSize; i++) {
+      for(int j=0; j<height/bufSize; j++) {
+        image(buf,bufSize*i,bufSize*j);
+      }
+  }
+  
+  var rot = PI/4;
+  var speed = 0.25;
+  var wait = 0.1;
+  angle = init + rot*(tanh(t-PI)+1)*0.5;
+  t = t + speed;
+  if(t>(2+wait)*PI) {
+      t = 0;
+      init = init + rot;
+  }
+  
+  
+  p1 = get();
+}
+</script>
+<style type="text/css">
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    background-color: #222;
+    color: #eee;
+    /*overflow: hidden;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;*/
+  }	
+  #pjs {
+    -webkit-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    -moz-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    margin: 2px 0px 50px 0px;
+  }
+</style>
+</head>
+<body>
+  <h1>On Tiles and Rotations</h1>
+  <canvas id="pjs"></canvas>
+  <div><span style="text-decoration:line-through;"> 
+Ripped off</span> Inspired by Bigblueboo's work of arts such as <a href="http://bigblueboo.tumblr.com/post/76225439536/70-spinning-cubes">spinning cubes</a> and <a href="http://bigblueboo.tumblr.com/post/72877298157/39-negative-space">negative space</a></div>.
+</body>
+</html>
