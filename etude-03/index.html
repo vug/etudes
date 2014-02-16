@@ -22,13 +22,11 @@
         <h1>On Tiles and Rotations (Three.js)</h1>
         <div id="container"></div>
         <p>Select a preset and click on "execute function".</p>
-        <div>
         <ul>
             <li>"i" is the column number (x-coordinate) and "j" is the row number (y-coordinate) of a tile. i and j are between 0 and "# of tiles" - 1.</li>
             <li>"n%m" is n modulus m: 5%3 = 2.</li>
             <li>"(i<2 || j>3) ? 1 : -1" means "if i is less than 2 or j is greater than 3, then return 1, otherwise return -1. "&&" means "and".</li>
         </ul>
-        </div>
         
 
     </body>
@@ -91,20 +89,9 @@ float colorVal(float angle) {
 
  
 void main() {
-    // colour is RGBA: u, v, 0, 1
     float side = 1.0/float(numTile);
-    
     vec2 pos = mod(vUv, vec2(side)) - vec2(0.5*side);
-    int i = int(float(numTile)*vUv.x);
-    int j = int(float(numTile)*vUv.y);
-    
-    int im = i-2*(i/2);
-    int jm = j-2*(j/2);
-    int im2 = im*2-1; // for alternating directions 
-    int jm2 = jm*2-1;
-    int ijm = i+j-2*((i+j)/2);
-
-    //float angle = atan(pos.x, pos.y) + overallPhase - float(i)*PI/1.0 + float(j)*PI/1.0;
+   
     float angle = atan(pos.x, pos.y);
     angle += 2.0*PI*(phase+oPhase);
     angle += (speed*oSpeed)*time;
@@ -121,8 +108,9 @@ var width = 600;
 var height = 600;
 var container;
 var renderer, scene, camera;
-var startTime = Date.now(), time = 0.0, timePrev = Date.now(), pauseDuration = 0.0; // time when script was first run
+var startTime = Date.now(), time = 0.0, t0 = 0.0, timePrev = Date.now(); // time when script was first run
 var numTiles = 5, side = width/numTiles, numDiv = 4, tiles;
+var phi = Math.PI/4;
 var stats, gui, guiParams;
 
   
@@ -156,12 +144,27 @@ window.addEventListener( 'load', function() {
     // DAT.GUI
     var presetJSON = 
 {
-  "preset": "Two Colors 2",
+  "preset": "333",
   "remembered": {
+    "333": {
+      "0": {
+        "phase function": "[[0/6,1/6],[4/6,3/6]][j][i]",
+        "speed function": "(i==0) ? 1 : 1",
+        "stop every pi/n": 6,
+        "do stops": true,
+        "# of tiles": 2,
+        "# of colors": 3,
+        "overall speed": 1,
+        "overall phase": 0,
+        "pause": false
+      }
+    },
     "Default": {
       "0": {
         "phase function": "-i*0.5 + j*0.5",
         "speed function": "1.0",
+        "stop every pi/n": 4,
+        "do stops": true,
         "# of tiles": 5,
         "# of colors": 4,
         "overall speed": 1,
@@ -173,6 +176,8 @@ window.addEventListener( 'load', function() {
       "0": {
         "phase function": "0.0",
         "speed function": "1.0",
+        "stop every pi/n": 4,
+        "do stops": true,
         "# of tiles": 4,
         "# of colors": 2,
         "overall speed": 1,
@@ -184,6 +189,8 @@ window.addEventListener( 'load', function() {
       "0": {
         "phase function": "(j%2)/2",
         "speed function": "(i%2)*2-1",
+        "stop every pi/n": 6,
+        "do stops": true,
         "# of tiles": 5,
         "# of colors": 3,
         "overall speed": 1,
@@ -195,6 +202,8 @@ window.addEventListener( 'load', function() {
       "0": {
         "phase function": "1.0",
         "speed function": "(i-2.5)*(j-2.5)*1.5",
+        "stop every pi/n": 2,
+        "do stops": true,
         "# of tiles": 6,
         "# of colors": 4,
         "overall speed": 1,
@@ -206,20 +215,11 @@ window.addEventListener( 'load', function() {
       "0": {
         "phase function": "(i-4.5)*(j-4.5)/4.5/4.5",
         "speed function": "(i-4.5)*(j-4.5)*3",
+        "stop every pi/n": 8,
+        "do stops": false,
         "# of tiles": 10,
         "# of colors": 2,
         "overall speed": 0.46604572396274346,
-        "overall phase": 0,
-        "pause": false
-      }
-    },
-    "333": {
-      "0": {
-        "phase function": "[[0/6,1/6],[4/6,3/6]][j][i]",
-        "speed function": "(i==0) ? 1 : 1",
-        "# of tiles": 2,
-        "# of colors": 3,
-        "overall speed": 1,
         "overall phase": 0,
         "pause": false
       }
@@ -244,12 +244,16 @@ window.addEventListener( 'load', function() {
         "phase": 0.0,
         "phase function": "-i*0.5 + j*0.5",
         "speed function": "1.0",
-        "execute functions": executeFunctions
+        "execute functions": executeFunctions,
+        "stop every pi/n": 2,
+        "do stops": true
     };
     gui.remember(guiParams); // saving system. before adding menu items.
     gui.add(guiParams, "execute functions");
     gui.add(guiParams, "phase function");
-    gui.add(guiParams, "speed function");    
+    gui.add(guiParams, "speed function");
+    gui.add(guiParams, "stop every pi/n", 1, 20).step(1).onChange( onStopsChange );
+    gui.add(guiParams, "do stops");
     gui.add(guiParams, "# of tiles", 1, 10).step(1).onChange( regenerateTiles );
     gui.add(guiParams, "# of colors", 2, 9).step(1).onChange( onUniformChange );
     gui.add(guiParams, "overall speed", 0, 1).onChange( onUniformChange );
@@ -280,13 +284,23 @@ window.addEventListener( 'load', function() {
 });
 
     function render() {
+        phi = Math.PI/guiParams["stop every pi/n"];
         dt = Date.now()-timePrev;
-        //time = Date.now()-startTime - pauseDuration;
-        time += dt;
+        time += dt*4;
+        if(time > 2000.0*Math.PI && guiParams["do stops"]) {
+            time = 0.0;
+            t0 = t0 + phi;
+        }
+
         for(var ii=0; ii<numTiles; ii++) {
             for(var jj=0; jj<numTiles; jj++) {
                 var uni = tiles[ii][jj].material.uniforms;
-                uni.time.value = time/1000.;
+                // uni.time.value = time/1000.;
+                if(guiParams["do stops"]) {
+                    uni.time.value = t0 + (tanh(time/1000.-Math.PI)+1.0)*0.5*phi;
+                } else {
+                    uni.time.value = time/1000.;
+                }
            }
         }
         renderer.render( scene, camera );
@@ -300,7 +314,7 @@ window.addEventListener( 'load', function() {
     function onWindowResize( event ) {
         //renderer.setSize( window.innerWidth, window.innerHeight );
         camera.updateProjectionMatrix();
-        //camera.aspect = 5.0; //window.innerWidth / window.innerHeight;
+        //camera.aspect = window.innerWidth / window.innerHeight;
     }    
 
 
@@ -330,8 +344,7 @@ window.addEventListener( 'load', function() {
                 uni.oSpeed.value = 0.4;
             }
         }
-
-        updateGUIParameters();     
+  
     }
 
     function executeFunctions() {
@@ -342,13 +355,6 @@ window.addEventListener( 'load', function() {
                 uni.speed.value = eval(guiParams["speed function"]);
             }
         }        
-    }
-
-    function updateGUIParameters() {
-      // Iterate over all controllers
-      for (var i in gui.__controllers) {
-        gui.__controllers[i].updateDisplay();
-      }        
     }
 
     function generateTiles() {
@@ -420,5 +426,15 @@ window.addEventListener( 'load', function() {
             tiles[i][j].material.uniforms.phase.value = guiParams["phase"];
         }
     }
+
+    function onStopsChange() {
+        t0 = 0.0;
+    }
+
+    function tanh(t) {
+        return (Math.exp(t)-Math.exp(-t))/(Math.exp(t)+Math.exp(-t));
+    }
+
+
     </script>
 </html>  
