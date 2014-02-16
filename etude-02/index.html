@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>On Perlin Noise and Rotations (Processing.js)</title>
+  <script src="../lib/processing-1.4.1.min.js"></script>
+  <script src="../lib/stats.min.js"></script>
+  <script type="application/processing" data-processing-target="pjs">
+int tPrev = 0;
+float x0 = 0.0;
+float y0 = 0.0;
+int nX = 50;
+int nY = 50;
+float[][] xs= new float[nX][nY];
+float[][] ys= new float[nX][nY];
+
+void setup() {
+  size(400, 300);
+  smooth();
+  fill(255);
+  noStroke();
+  background(110);
+  rectMode(CENTER);
+  noiseDetail(3, 0.5);
+
+  for (int i = 0; i<nX; i++) {
+    for (int j = 0; j<nY; j++) {
+      xs[i][j] = random(width);
+      ys[i][j] = random(height);
+    }
+  }
+}
+
+
+void draw() {
+  int t = millis();
+  if (t>tPrev) {
+    colorMode(RGB, 255);
+    background(20, 20, 50);
+    for (int i=0; i<nX; i++) {
+      for (int j=0; j<nY; j++) {
+        float x, y;
+
+        x = xs[i][j];
+        y = ys[i][j];
+
+        float k = 0.01;
+
+        float nx = k*x + x0;
+        float ny = k*y + y0;
+        float noiz = noise(nx, ny, 0.0003*t);
+
+
+        pushMatrix();
+        translate(x, y);
+        color c1 = color(10, 20, 80, 200);
+        color c2 = color(200, 200, 200, 100);
+        fill( lerpColor(c1, c2, noiz) );
+        float len = sq(1-noiz)*35+25;
+
+        //colorMode(HSB, 1.0);
+        //fill(noiz,0.5,0.5);
+
+        //fill(20, 30*noiz+20, 255-(noiz*255));
+        rotate(TWO_PI*noiz - 0.5*PI);
+        rect(0, 0, len, 1);
+
+        popMatrix();
+      }
+    }
+    tPrev = t + 30;
+    x0 = x0 + 0.02;
+    y0 = y0 + 0.04;
+  }
+
+  stats.update();
+}
+</script>
+<style type="text/css">
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    background-color: #222;
+    color: #eee;
+    /*overflow: hidden;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;*/
+  }	
+  #pjs {
+    -webkit-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    -moz-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    margin: 2px 0px 50px 0px;
+  }
+</style>
+</head>
+<body>
+  <h1>On Perlin Noise and Rotations (Processing.js)</h1>
+  <canvas id="pjs"></canvas>
+  <p><span style="text-decoration:line-through;"> 
+Ripped off</span> Inspired by Patakk's work <a href="http://patakk.tumblr.com/post/54483135591/rotate-noise-x-y">rotate noise</a>.</p>
+  <p>an offline rendered version is <a href="http://maximallyentangled.tumblr.com/post/76479536406/on-perlin-noise-and-rotations">at Tumblr</a>.</p>
+  <script type="text/javascript"> // Script for Stats.js
+    var stats = new Stats();
+    stats.setMode(0); // 0: fps, 1: ms
+
+    // Align top-left
+    stats.domElement.style.position = 'absolute';
+    stats.domElement.style.left = '0px';
+    stats.domElement.style.top = '0px';
+
+    document.body.appendChild( stats.domElement );
+  </script>
+</body>
+</html>

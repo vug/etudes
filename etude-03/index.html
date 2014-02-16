@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>On Tiles and Rotations (Three.js)</title>
+        <meta charset="utf-8">
+        <style>
+            body { 
+                margin: 0;
+                padding: 0;
+                text-align: center;
+                background-color: #222;
+                color: #eee;
+            }
+            #stats { position: absolute; top:0; left: 0 }
+            #stats #fps { background: transparent !important }
+            #stats #fps #fpsText { color: #555 !important }
+            /*#stats #fps #fpsGraph { display: none }*/
+        </style>
+    </head>
+ 
+    <body>
+        <h1>On Tiles and Rotations (Three.js)</h1>
+        <div id="container"></div>
+        <p>Select a preset and click on "execute function".</p>
+        <div>
+        <ul>
+            <li>"i" is the column number (x-coordinate) and "j" is the row number (y-coordinate) of a tile. i and j are between 0 and "# of tiles" - 1.</li>
+            <li>"n%m" is n modulus m: 5%3 = 2.</li>
+            <li>"(i<2 || j>3) ? 1 : -1" means "if i is less than 2 or j is greater than 3, then return 1, otherwise return -1. "&&" means "and".</li>
+        </ul>
+        </div>
+        
+
+    </body>
+ 
+    <script src="../lib/three.min.js"></script>
+    <script src="../lib/stats.min.js"></script>
+    <script src="../lib/dat.gui.min.js"></script>    
+ 
+
+<script type="x-shader/x-vertex" id="vertexShader">
+// send UV to Fragment Shader
+varying vec2 vUv;
+ 
+void main() {
+ 
+    vUv = uv;
+    gl_Position = projectionMatrix * 
+                  modelViewMatrix * 
+                  vec4( position, 1.0 );
+ 
+}
+</script>
+
+
+<script type="x-shader/x-vertex" id="tile">
+#define PI 3.14159265358979323846
+
+varying vec2 vUv;
+
+uniform float time;
+uniform int numDiv;
+uniform int numTile;
+uniform float oPhase;
+uniform float oSpeed;
+uniform float phase;
+uniform float speed;
+
+float maxCol = 1.0;
+float minCol = 0.4;
+
+// modulus function for integers
+int imode(int n, int m) {
+    return n-m*(n/m);
+}
+
+// returns the color of a region
+float colN(int n) {
+    return minCol + float(n+1)*(maxCol-minCol)/float(numDiv);
+}
+
+// returns the smoother, anti-aliased color value given 
+float colorVal(float angle) {
+    float antiAlias = 0.05; // higher smoother 
+
+    float divAngle = 2.0*PI / float(numDiv); // angle per division
+    int n = int(angle/divAngle); // the division number. 0 -> numDiv - 1
+    float smooth = smoothstep( float(n)*divAngle-antiAlias, float(n)*divAngle+antiAlias, angle-0.5*divAngle );
+    return colN(n) + ( colN(imode(n+1,numDiv))-colN(n))*smooth;
+}
+
+ 
+void main() {
+    // colour is RGBA: u, v, 0, 1
+    float side = 1.0/float(numTile);
+    
+    vec2 pos = mod(vUv, vec2(side)) - vec2(0.5*side);
+    int i = int(float(numTile)*vUv.x);
+    int j = int(float(numTile)*vUv.y);
+    
+    int im = i-2*(i/2);
+    int jm = j-2*(j/2);
+    int im2 = im*2-1; // for alternating directions 
+    int jm2 = jm*2-1;
+    int ijm = i+j-2*((i+j)/2);
+
+    //float angle = atan(pos.x, pos.y) + overallPhase - float(i)*PI/1.0 + float(j)*PI/1.0;
+    float angle = atan(pos.x, pos.y);
+    angle += 2.0*PI*(phase+oPhase);
+    angle += (speed*oSpeed)*time;
+    angle = mod(angle, 2.0*PI);
+
+    float col = colorVal( angle );
+    gl_FragColor = vec4( col, col, col, 1.0);
+}
+</script>
+
+ 
+<script type="text/javascript" id="mainCode">
+var width = 600;
+var height = 600;
+var container;
+var renderer, scene, camera;
+var startTime = Date.now(), time = 0.0, timePrev = Date.now(), pauseDuration = 0.0; // time when script was first run
+var numTiles = 5, side = width/numTiles, numDiv = 4, tiles;
+var stats, gui, guiParams;
+
+  
+window.addEventListener( 'load', function() {
+    // grab the container from the DOM
+    container = document.getElementById( "container" );
+
+    // CAMERA 
+    // Use OrthographicCamera instead of a perspective one to get a flat display
+    camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 1000 );
+    camera.position.z = 500; // now z-position shouldn't matter
+    camera.target = new THREE.Vector3( 0, 0, 0 );
+
+    // SCENE
+    scene = new THREE.Scene(); 
+    scene.add( camera );
+
+    // RENDERER
+    renderer = new THREE.WebGLRenderer({antialias: false});
+    //renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.setSize( width, height );
+    container.appendChild( renderer.domElement );
+    //document.body.appendChild(renderer.domElement);
+    //renderer.domElement.style.border = "solid 10px white";
+    renderer.domElement.style["box-shadow"] = "8px 6px 15px 0px rgba(0,0,0,0.75)";
+
+    // STATS
+    stats = new Stats();
+    document.body.appendChild( stats.domElement );    
+
+    // DAT.GUI
+    var presetJSON = 
+{
+  "preset": "Two Colors 2",
+  "remembered": {
+    "Default": {
+      "0": {
+        "phase function": "-i*0.5 + j*0.5",
+        "speed function": "1.0",
+        "# of tiles": 5,
+        "# of colors": 4,
+        "overall speed": 1,
+        "overall phase": 0,
+        "pause": false
+      }
+    },
+    "Simplest": {
+      "0": {
+        "phase function": "0.0",
+        "speed function": "1.0",
+        "# of tiles": 4,
+        "# of colors": 2,
+        "overall speed": 1,
+        "overall phase": 0,
+        "pause": false
+      }
+    },
+    "Three Colors 1": {
+      "0": {
+        "phase function": "(j%2)/2",
+        "speed function": "(i%2)*2-1",
+        "# of tiles": 5,
+        "# of colors": 3,
+        "overall speed": 1,
+        "overall phase": 0,
+        "pause": false
+      }
+    },
+    "Four Colors 2": {
+      "0": {
+        "phase function": "1.0",
+        "speed function": "(i-2.5)*(j-2.5)*1.5",
+        "# of tiles": 6,
+        "# of colors": 4,
+        "overall speed": 1,
+        "overall phase": 0.25,
+        "pause": false
+      }
+    },
+    "Two Colors 2": {
+      "0": {
+        "phase function": "(i-4.5)*(j-4.5)/4.5/4.5",
+        "speed function": "(i-4.5)*(j-4.5)*3",
+        "# of tiles": 10,
+        "# of colors": 2,
+        "overall speed": 0.46604572396274346,
+        "overall phase": 0,
+        "pause": false
+      }
+    },
+    "333": {
+      "0": {
+        "phase function": "[[0/6,1/6],[4/6,3/6]][j][i]",
+        "speed function": "(i==0) ? 1 : 1",
+        "# of tiles": 2,
+        "# of colors": 3,
+        "overall speed": 1,
+        "overall phase": 0,
+        "pause": false
+      }
+    }
+  },
+  "closed": false,
+  "folders": {}
+};
+
+    gui = new dat.GUI({ load: presetJSON, preset: 'Default'});    
+
+    guiParams = {
+        "# of tiles": numTiles,
+        "# of colors": numDiv,
+        "pause": false,
+        "overall speed": 1.0,
+        "overall phase": 0.0,
+        "change individual": false,
+        "row": 1,
+        "col": 1,
+        "speed": 1.0,
+        "phase": 0.0,
+        "phase function": "-i*0.5 + j*0.5",
+        "speed function": "1.0",
+        "execute functions": executeFunctions
+    };
+    gui.remember(guiParams); // saving system. before adding menu items.
+    gui.add(guiParams, "execute functions");
+    gui.add(guiParams, "phase function");
+    gui.add(guiParams, "speed function");    
+    gui.add(guiParams, "# of tiles", 1, 10).step(1).onChange( regenerateTiles );
+    gui.add(guiParams, "# of colors", 2, 9).step(1).onChange( onUniformChange );
+    gui.add(guiParams, "overall speed", 0, 1).onChange( onUniformChange );
+    gui.add(guiParams, "overall phase", 0, 1).onChange( onUniformChange );
+    gui.add(guiParams, "pause").onChange( onPause );
+
+
+    // var f1 = gui.addFolder('Individual Tile');
+    // f1.add(guiParams, "change individual");
+    // f1.add(guiParams, "row", 1, 10).step(1).onChange( onIndividualChange );
+    // f1.add(guiParams, "col", 1, 10).step(1).onChange( onIndividualChange );    
+    // f1.add(guiParams, "speed", 0.0, 1.0).onChange( onIndividualChange );
+    // f1.add(guiParams, "phase", 0.0, 1.0).step(0.01).onChange( onIndividualChange );
+     
+    // var f2 = gui.addFolder('Functions');
+    // f2.open();
+    // f2.add(guiParams, "phase function");
+    // f2.add(guiParams, "speed function");
+    // f2.add(guiParams, "execute functions");
+
+    // OBJECTS
+    generateTiles();    
+
+    render();
+    onWindowResize();
+    window.addEventListener( 'resize', onWindowResize, false );
+    executeFunctions();
+});
+
+    function render() {
+        dt = Date.now()-timePrev;
+        //time = Date.now()-startTime - pauseDuration;
+        time += dt;
+        for(var ii=0; ii<numTiles; ii++) {
+            for(var jj=0; jj<numTiles; jj++) {
+                var uni = tiles[ii][jj].material.uniforms;
+                uni.time.value = time/1000.;
+           }
+        }
+        renderer.render( scene, camera );
+        stats.update();
+        
+        timePrev = Date.now();
+
+        if(!guiParams["pause"]) { requestAnimationFrame( render ); }
+    }
+
+    function onWindowResize( event ) {
+        //renderer.setSize( window.innerWidth, window.innerHeight );
+        camera.updateProjectionMatrix();
+        //camera.aspect = 5.0; //window.innerWidth / window.innerHeight;
+    }    
+
+
+    function onPause() {
+        if(guiParams["pause"]) {
+        } else {
+            timePrev = Date.now();
+           render();
+        }        
+    }
+
+    function constantArray(len, val) {
+        var arr = new Array(len);
+        for(var i=0; i<len; i++) {
+            arr[i] = val;
+        }
+        return arr;
+    }
+
+    function preset1() {
+        for(var i=0; i<numTiles; i++) {
+            for(var j=0; j<numTiles; j++) {
+                var uni = tiles[i][j].material.uniforms;
+                uni.phase.value = -i*0.5 + j*0.5;
+                uni.speed.value = 1.0;
+                uni.oPhase.value = 0.0;
+                uni.oSpeed.value = 0.4;
+            }
+        }
+
+        updateGUIParameters();     
+    }
+
+    function executeFunctions() {
+        for(var i=0; i<numTiles; i++) {
+            for(var j=0; j<numTiles; j++) {
+                var uni = tiles[i][j].material.uniforms;
+                uni.phase.value = eval(guiParams["phase function"]);
+                uni.speed.value = eval(guiParams["speed function"]);
+            }
+        }        
+    }
+
+    function updateGUIParameters() {
+      // Iterate over all controllers
+      for (var i in gui.__controllers) {
+        gui.__controllers[i].updateDisplay();
+      }        
+    }
+
+    function generateTiles() {
+        tiles = [];
+        for(var i=0; i<numTiles; i++) {
+            var temp = [];
+            for(var j=0; j<numTiles; j++) {
+                var uni = {
+                    time: { type: "f", value: 1.0 },
+                    numTile: { type: "i", value: 1},
+                    numDiv: { type: "i", value: guiParams["# of colors"]},
+                    oPhase: { type: "f", value: 0.0 },
+                    oSpeed: { type: "f", value: 1.0 },
+                    phase: { type: "f", value: 0.0 },
+                    speed: { type: "f", value: 1.0 }
+                };
+                 
+                var mat = new THREE.ShaderMaterial( {
+                    uniforms: uni,
+                    vertexShader: document.getElementById( 'vertexShader' ).textContent,
+                    fragmentShader: document.getElementById( 'tile' ).textContent
+                } );
+
+
+                var tile = new THREE.Mesh(
+                                new THREE.CubeGeometry( side, side, side ), 
+                                mat
+                              );
+                tile.position.x = i*side - numTiles*side/2 + side/2;
+                tile.position.y = j*side - numTiles*side/2 + side/2;
+
+                temp[j] = tile;
+                scene.add( tile );
+            }
+            tiles[i] = temp;
+        }        
+    }
+
+    function removeTiles() {
+        for(var i=0; i<numTiles; i++) {
+            for(var j=0; j<numTiles; j++) {        
+                scene.remove(tiles[i][j]);
+            }
+        }
+    }
+
+    function regenerateTiles() {
+        removeTiles();
+        numTiles = guiParams["# of tiles"];
+        side = width/numTiles;
+        generateTiles();
+    }
+
+    function onUniformChange() {
+        for(var i=0; i<numTiles; i++) {
+            for(var j=0; j<numTiles; j++) {        
+                tiles[i][j].material.uniforms.numDiv.value = guiParams["# of colors"];
+                tiles[i][j].material.uniforms.oSpeed.value = guiParams["overall speed"];
+                tiles[i][j].material.uniforms.oPhase.value = guiParams["overall phase"];
+            }
+        }        
+    }
+
+    function onIndividualChange() {
+        var i = guiParams["row"]-1;
+        var j = guiParams["col"]-1;
+        if( guiParams["change individual"] === true ) {
+            tiles[i][j].material.uniforms.speed.value = guiParams["speed"];
+            tiles[i][j].material.uniforms.phase.value = guiParams["phase"];
+        }
+    }
+    </script>
+</html>  
