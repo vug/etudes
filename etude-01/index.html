@@ -1,17 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Hello Web - Processing.js Test</title>
+  <title>On Tiles and Rotations (Processing.js)</title>
   <script src="../lib/processing-1.4.1.min.js"></script>
+  <script src="../lib/stats.min.js"></script>
   <script type="application/processing" data-processing-target="pjs">
 PGraphics buf;
 PImage p1;
 float angle = 0.0;
 float t = 0;
 float init = 0;
+int frameCount = 0;
  
 float tanh(float t) {
     return (exp(t)-exp(-t))/(exp(t)+exp(-t));
+}
+
+PGraphics generateTile(int tileSize, float angle, int nDiv) {
+  PGraphics tile = createGraphics(tileSize, tileSize);
+
+  tile.beginDraw();
+  tile.background(0,0);
+  tile.noStroke();
+  tile.smooth();
+  tile.translate(0.5*tileSize, 0.5*tileSize);
+  tile.rotate(angle);
+
+  // tile.rect(-2* tileSize, 0, 4*tileSize, tileSize);
+  // tile.arc(0, 0, tileSize*1.5, tileSize*1.5, 0, PI); // 1.5 > sqrt(2) // try different numbers
+  float divAng = TWO_PI / nDiv;
+  int[] colors = new int[nDiv];
+  int colDif = (255 - 100)/(nDiv-1);
+  for(int i=0; i<nDiv; i++) {
+    colors[i] = 100 + i*colDif;
+    // console.log(colors[i]);
+  }
+
+  for(int i=0; i<nDiv; i++) {
+    tile.fill(colors[i]);
+    tile.arc(0, 0, tileSize*1.5, tileSize*1.5, i*divAng, (i+1)*divAng); // 1.5 > sqrt(2) // try different numbers
+  }
+  // tile.ellipse(0, 0, 0, tileSize*1.5, tileSize*1.5);
+  tile.endDraw();
+
+  return tile;
 }
  
 void setup() 
@@ -20,36 +52,23 @@ void setup()
   noStroke();
   frameRate(30);
   smooth();
-  // Set the starting position of the shape
-  xpos = width/2;
-  ypos = height/2;
-  
+
   p1 = createImage(width, height, ARGB);
 }
  
 void draw() 
 {
-  background(102);
-  tint(255, 170);
-  image(p1,0,0);
-  
-  tint(255,255); 
   int bufSize = 60;
-  buf = createGraphics(bufSize, bufSize);
-  buf.beginDraw();
-  buf.background(0,0);
-  buf.noStroke();
-  buf.smooth();
-  buf.translate(bufSize/2, bufSize/2);
-  buf.rotate(angle);
-  buf.rect(-2* bufSize, 0, 4*bufSize, bufSize);
-  buf.endDraw();
+  buf = generateTile(bufSize, angle, 2);
   for(int i=0; i<width/bufSize; i++) {
       for(int j=0; j<height/bufSize; j++) {
         image(buf,bufSize*i,bufSize*j);
+        // buf = generateTile(bufSize, angle*(1+0*i) + i*0.0);
+        // image(generateTile(bufSize, angle*(1+0*i) + i*0.0) ,bufSize*i,bufSize*j);
       }
   }
   
+  // Rotation pattern of tiles
   var rot = PI/4;
   var speed = 0.25;
   var wait = 0.1;
@@ -60,8 +79,19 @@ void draw()
       init = init + rot;
   }
   
-  
+  // Motion blur
+  tint(255, 170);
+  image(p1,0,0);  
   p1 = get();
+  stats.update();
+  tint(255,255); 
+
+  // To create GIFs
+  if(frameCount<2) {
+    // saveFrame("screen-####.png");
+    // save("screen.png");
+  }
+  frameCount++;
 }
 </script>
 <style type="text/css">
@@ -84,9 +114,20 @@ void draw()
 </style>
 </head>
 <body>
-  <h1>On Tiles and Rotations</h1>
+  <h1>On Tiles and Rotations (Processing.js)</h1>
   <canvas id="pjs"></canvas>
   <div><span style="text-decoration:line-through;"> 
-Ripped off</span> Inspired by Bigblueboo's work of arts such as <a href="http://bigblueboo.tumblr.com/post/76225439536/70-spinning-cubes">spinning cubes</a> and <a href="http://bigblueboo.tumblr.com/post/72877298157/39-negative-space">negative space</a></div>.
+Ripped off</span> Inspired by Bigblueboo's work of arts such as <a href="http://bigblueboo.tumblr.com/post/76225439536/70-spinning-cubes">spinning cubes</a> and <a href="http://bigblueboo.tumblr.com/post/72877298157/39-negative-space">negative space</a>.</div>
+  <script type="text/javascript"> // Script for Stats.js
+    var stats = new Stats();
+    stats.setMode(0); // 0: fps, 1: ms
+
+    // Align top-left
+    stats.domElement.style.position = 'absolute';
+    stats.domElement.style.left = '0px';
+    stats.domElement.style.top = '0px';
+
+    document.body.appendChild( stats.domElement );
+  </script>
 </body>
 </html>
