@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>On Constellations and Zodiac Signs (Processing.js)</title>
+  <script src="../lib/processing-1.4.1.min.js"></script>
+  <script src="../lib/stats.min.js"></script>
+  <script type="application/processing" data-processing-target="pjs">
+int nStars = 50;
+PVector[] sc = new PVector[nStars];
+float[] rad = new float[nStars];
+int nClusters = 10;
+color[] colors = new color[nClusters];
+PVector[] cc = new PVector[nClusters];
+ArrayList<int>[] clusters = new ArrayList<int>  [nClusters];
+
+void setup() {
+  size(600, 400);
+  smooth();
+  noStroke();
+
+  
+  for (int i=0; i<nClusters; i++) {
+    colorMode(HSB);
+    //colors[i] = color(i*255/nClusters, 200, 150);
+    colorMode(RGB);
+    colors[i] = color(250, 250, 200);
+  }
+  
+
+  // generate random locations and sizes for stars
+  for (int i=0; i<nStars; i++) {
+    sc[i] = new PVector( random(width), random(height) );
+    rad[i] = random(3.0) + 2.0;
+  }
+
+  // k-mean clustering algorithm
+  // generate random cluster centroids
+  for (int i=0; i<nClusters; i++) {
+    cc[i] = new PVector( random(width), random(height) );
+    clusters[i] = new ArrayList();
+  }
+
+  // iterate several times
+  for (int iter=0; iter<15; iter++) {
+    // Empty clusters
+    for (int i=0; i<nClusters; i++) {
+      clusters[i].clear();
+    }
+
+    // Assign each object to the group that has the closest centroid   
+    for (int i=0; i<nStars; i++) {
+      clusters[ findClosestCentroid(i) ].add(i);
+    }
+
+    // Recalculate the positions of the centroids.
+    for (int i=0; i<nClusters; i++) {
+      cc[i] = centerOfMass(i);
+    }
+  }
+
+  noLoop();
+}
+
+void draw() {
+  background(0);
+  noStroke();
+  fill(255);
+
+  // draw random stars
+  for (int i=0; i<30; i++) {
+    fill(150);
+    ellipse(random(width), random(height), 3, 3);
+  }
+  for (int i=0; i<30; i++) {
+    fill(80);
+    ellipse(random(width), random(height), 2, 2);
+  }
+
+  drawClusters();
+  //drawCentroids();
+
+  // for each cluster draw some constellations 
+  for (int i=0; i<nClusters; i++) {
+    stroke( colors[i] );
+    if ( clusters[i].size() > 3 && clusters[i].size()<8) {
+      //println( i, clusters[i].size() );
+      for ( int j=0; j<clusters[i].size()-1; j++) {
+        int sIn1 = clusters[i].get(j);
+        int sIn2 = clusters[i].get(j+1);
+        line( sc[sIn1].x, sc[sIn1].y, sc[sIn2].x, sc[sIn2].y );
+      }
+    }
+  }
+}
+
+int findClosestCentroid(int starNo) {
+  int clusterNo = 0;
+  float minDist = 99999.0;
+  for (int j=0; j<nClusters; j++) {  
+    float d = sc[starNo].dist(cc[j]);
+    if (d<minDist) {
+      minDist = d;
+      clusterNo = j;
+    }
+  }  
+  return clusterNo;
+}
+
+
+void drawClusters() {
+  for (int i=0; i<nClusters; i++) {
+    for (int j=0; j<clusters[i].size(); j++) {
+      int sIn = clusters[i].get(j);
+      fill(colors[i]);
+      fill( lerpColor( color(250,250,150), color(200,200, 250), random(1000)/1000.) );
+      ellipse(sc[sIn].x, sc[sIn].y, rad[sIn], rad[sIn]);
+    }
+    //println( centerOfMass(i) );
+  }
+}
+
+void drawCentroids() {
+  for (int i=0; i<nClusters; i++) {
+    //fill( 50+i*205/nClusters, 0, 0 );
+    fill(colors[i]); 
+    rect(cc[i].x, cc[i].y, 5, 5);
+  }
+}
+
+PVector centerOfMass(int clusterNo) {
+  PVector center = new PVector(0., 0.);
+  int clusterSize = clusters[clusterNo].size();
+  for (int i=0; i<clusterSize; i++) {
+    int starInClisterIndex = clusters[clusterNo].get(i);
+    center.add( sc[starInClisterIndex] );
+  }
+  center.div( clusterSize );
+  return center;
+}
+
+void mousePressed(event e) {
+  setup();
+  draw();
+}   
+</script>
+<style type="text/css">
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    background-color: #222;
+    color: #eee;
+    /*overflow: hidden;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;*/
+  }	
+  #pjs {
+    -webkit-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    -moz-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    margin: 2px 0px 50px 0px;
+    outline: none; /* no focus highlight */
+  }
+</style>
+</head>
+<body>
+  <h1>On Constellations and Zodiac Signs (Processing.js)</h1>
+  <canvas id="pjs"></canvas>
+  <div>A constellation generator.</div>
+  <script type="text/javascript"> // Script for Stats.js
+    var stats = new Stats();
+    stats.setMode(0); // 0: fps, 1: ms
+
+    // Align top-left
+    stats.domElement.style.position = 'absolute';
+    stats.domElement.style.left = '0px';
+    stats.domElement.style.top = '0px';
+
+    document.body.appendChild( stats.domElement );
+  </script>
+</body>
+</html>
