@@ -10,27 +10,27 @@
   body {
     margin: 0;
     padding: 0;
-    text-align: center;
+    /*text-align: center;*/
     background-color: #222;
     color: #eee;
     /*overflow: hidden;
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;*/
-  }	
+  } 
   #cnv {
-    -webkit-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
+    /*-webkit-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
     -moz-box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
-    box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);
-    margin: 2px 0px 50px 0px;
+    box-shadow: 6px 4px 15px 0px rgba(0,0,0,0.75);*/
+    /*margin: 2px 0px 50px 0px;*/
     outline: none; /* no focus highlight */
   }
 </style>
 </head>
 <body>
-  <h1>On Constellations and Zodiac Signs (Processing.js)</h1>
+  <!--<h1>On Constellations and Zodiac Signs (Processing.js)</h1>-->
   <!--<canvas id="pjs"></canvas>-->
   <canvas data-processing-sources="processing_code.pde" id="cnv"></canvas>
   
-  <div>A constellation generator. Click to regenerate.</div>
+  <div>A constellation generator. Click to regenerate. <a href="https://github.com/vug/etudes/tree/master/etude-04">source<a>.</div>
   <script type="text/javascript"> // Script for Stats.js
     var stats = new Stats();
     stats.setMode(0); // 0: fps, 1: ms
@@ -40,7 +40,7 @@
     stats.domElement.style.left = '0px';
     stats.domElement.style.top = '0px';
 
-    document.body.appendChild( stats.domElement );
+    //document.body.appendChild( stats.domElement );
   </script>
 </body>
 </html>
